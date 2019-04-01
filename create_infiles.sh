@@ -14,11 +14,6 @@ numOfFiles="$2"
 numOfDirs="$3"
 levels="$4"
 
-echo $dirname
-echo $numOfFiles
-echo $numOfDirs
-echo $levels
-
 # Check to see that the numOfFiles, numOfDirs and levels variables are numbers with regex:
 isNum='^[0-9]+$'
 if ! [[ $numOfFiles =~ $isNum ]] || ! [[ $numOfDirs =~ $isNum ]] || ! [[ $levels =~ $isNum ]]; then
