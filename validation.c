@@ -50,3 +50,19 @@ int validateParameters(char* commonDirectory, char* inputDirectory,
 
     return 0;
 }
+
+// Get the client id from the filename client_id.id:
+unsigned long int getClientIDFromFilename(char* filename)
+{
+    unsigned long int id;
+    sscanf(filename, "%lu.id", &id);
+    return id;
+}
+
+// Check filename is an .id file:
+int isIDFile(char* filename)
+{
+    char *ext;
+    ext = strrchr(filename, '.');
+    return strcmp(".id", ext);
+}

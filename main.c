@@ -4,8 +4,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/inotify.h>
+
 #include "validation.h"
 #include "file_edits.h"
+#include "linked_list.h"
+#include "child_processes.h"
+
+#define EVENT_SIZE  (sizeof(struct inotify_event))
+#define EVENT_BUFFER_LEN  (1024*(EVENT_SIZE + 16))
 
 int main(int argc, char **argv)
 {
@@ -77,4 +84,88 @@ int main(int argc, char **argv)
     {
         return 0;
     }
+
+    // Create clients linked list:
+    LinkedList* clientsList = initializeLinkedList();
+
+    // Synchronize with already existing clients:
+    synchronizeExistingClients(ID, commonDirectory, clientsList);
+
+    // Initialize inotify:
+    int length, i;
+    int inotifyInstance;
+    int dirWatch;
+    char buffer[EVENT_BUFFER_LEN];
+    inotifyInstance = inotify_init();
+
+    // Check everything is ok:
+    if (inotifyInstance < 0) {
+        fprintf(stderr, "Something didn't work right with inotify. Oh well...\n");
+        return 1;
+    }
+
+    // Add common dir to the list of dirs to check:
+    dirWatch = inotify_add_watch( inotifyInstance, commonDirectory, IN_CREATE | IN_DELETE );
+
+    // Now your job is to keep guard for any changes in the common directory:
+    while(1)
+    {
+        // Read until an event occurs:
+        length = read(inotifyInstance, buffer, EVENT_BUFFER_LEN);
+
+        // Check for errors in length:
+        if (length < 0) {
+            fprintf(stderr, "Something didn't work right with inotify. Oh well...\n");
+            return 1;
+        }
+
+        // Read the changes happening:
+        i = 0;
+        while(i < length)
+        {
+            struct inotify_event *event = (struct inotify_event*)&buffer[i];
+            if (event->len) {
+                if ((event->mask & IN_CREATE) && !(event->mask & IN_ISDIR)) {
+                    char *newFilename = malloc(sizeof(char) * strlen(event->name));
+                    strcpy(newFilename, event->name);
+                    if(isIDFile(newFilename) != 0)
+                    {
+                        i += EVENT_SIZE + event->len;
+                        free(newFilename);
+                        continue;
+                    }
+                    // Get client id from filename:
+                    unsigned long int newID = getClientIDFromFilename(newFilename);
+
+                    // Check if id exists in linked list:
+                    int idFound = checkClientInLinkedList(newID, clientsList);
+                    if(idFound == 0)
+                    {
+                        fprintf(stderr, "Not the first time I see this id, something didn't go well...\n");
+                        continue;
+                    }
+
+                    // Add new client to linked list:
+                    client* newClient = initializeClient(newID, 0);
+                    Node* newClientNode = initializeNode(newClient);
+                    appendToLinkedList(clientsList, newClientNode);
+
+                    // Begin synchronization procedure:
+                    printf("Begin synchronization.\n");
+                    synchronizeClients(ID, newID, commonDirectory);
+                }
+                else if((event->mask & IN_DELETE) && !(event->mask & IN_ISDIR))
+                {
+                    char *deletedFilename = malloc(sizeof(char) * strlen(event->name));
+                    strcpy(deletedFilename, event->name);
+                }
+            }
+            i += EVENT_SIZE + event->len;
+        }
+    }
+    // Remove the common dir directory from the watch list:
+    inotify_rm_watch(inotifyInstance, dirWatch);
+
+    // Close inotify instance:
+    close(inotifyInstance);
 }
