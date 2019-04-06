@@ -40,6 +40,16 @@ void appendToLinkedList(LinkedList* linkedList, Node* node)
     }
 }
 
+// Pop a node from the beginning of the list:
+Node* popStart(LinkedList* linkedList)
+{
+    Node* node = linkedList->head;
+    linkedList->head = linkedList->head->next;
+    if(linkedList->head == NULL)
+        linkedList->tail = NULL;
+    return node;
+}
+
 // Deallocate memory of a linked list:
 void freeLinkedList(LinkedList* linkedList)
 {

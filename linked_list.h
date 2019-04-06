@@ -32,6 +32,7 @@ Node* initializeNode(void* item);
 LinkedList* initializeLinkedList();
 void appendToLinkedList(LinkedList* linkedList, Node* node);
 void freeLinkedList(LinkedList* linkedList);
+Node* popStart(LinkedList* linkedList);
 
 // Client part:
 client* initializeClient(unsigned long int id, pid_t processID);

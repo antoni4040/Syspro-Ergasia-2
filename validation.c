@@ -64,5 +64,7 @@ int isIDFile(char* filename)
 {
     char *ext;
     ext = strrchr(filename, '.');
+    if(ext == NULL)
+        return 1;
     return strcmp(".id", ext);
 }

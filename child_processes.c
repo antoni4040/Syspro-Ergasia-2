@@ -1,7 +1,8 @@
 // Created by Antonis Karvelas.
 #include "child_processes.h"
 
-int synchronizeClients(unsigned long int client1, unsigned long int client2, char* commonDir)
+int synchronizeClients(unsigned long int client1, unsigned long int client2,
+    char* commonDir, char* inputDir)
 {
     pid_t childA, childB;
     struct stat fifoExists;
@@ -13,7 +14,7 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2, cha
         // Child A code, responsible for sending through fifo:
         int fd;
         char buffer[100];
-        char id_to_id[24];
+        char id_to_id[128];
 
         // Create fifo filename:
         char* fifoFile = malloc(sizeof(char) * (strlen(commonDir) + 16));
@@ -21,14 +22,14 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2, cha
         strcat(fifoFile, "/");
         sprintf(id_to_id, "id%lu_to_id_%lu.fifo", client1, client2);
         strcat(fifoFile, id_to_id);
-        printf("bb %s\n", fifoFile);
+        // printf("bb %s\n", fifoFile);
 
         // If fifo doesn't exist, create it:
-        if (stat(fifoFile, &fifoExists) != 0)
+        if(mkfifo(fifoFile, 0666) == -1)
         {
-            if (mkfifo(fifoFile, 0666) == -1)
+            if(errno != EEXIST)
             {
-                perror ("sender : mkfifo failed ");
+                perror("sender : mkfifo failed ");
                 exit(1);
             }
         }
@@ -39,6 +40,49 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2, cha
             perror("Can't open fifo. Maybe trying booting FIFA?");
             exit(1);
         }
+
+        // Get all files from current client input file:
+        DIR *directory;
+        struct dirent *directory_entry;
+        printf("\n Input dir:%s\n", inputDir);
+        char* firstDirName = malloc(sizeof(char) * strlen(inputDir));
+        strcpy(firstDirName, inputDir);
+        Node* firstNode = initializeNode(firstDirName);
+        LinkedList* toVisit = initializeLinkedList();
+        appendToLinkedList(toVisit, firstNode);
+
+        while(toVisit->head != NULL)
+        {
+            Node* node = popStart(toVisit);
+            char* dirName = (char*)node->item;
+            if ((directory = opendir(dirName)) == NULL)
+                break;
+            while((directory_entry = readdir(directory)) != NULL)
+            {
+                if(strcmp(directory_entry->d_name, ".") == 0 || strcmp(directory_entry->d_name, "..") == 0)
+                    continue;
+                if(directory_entry->d_type == DT_DIR)
+                {
+                    char* newDirName = malloc(sizeof(char) * (
+                        strlen(directory_entry->d_name) + strlen(dirName) + 1));
+                    strcpy(newDirName, dirName);
+                    strcat(newDirName, "/");
+                    strcat(newDirName, directory_entry->d_name);
+                    printf("dir: %s\n", newDirName);
+                    Node* newNode = initializeNode(newDirName);
+                    appendToLinkedList(toVisit, newNode);
+                }
+                else
+                {
+                    printf("File: %s\n", directory_entry->d_name);
+                }
+            }
+            free(node->item);
+            free(node);
+            closedir(directory);
+        }
+        free(toVisit);
+
         free(fifoFile);
     }
     else
@@ -50,7 +94,7 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2, cha
             // Child B code, , responsible for receiving through fifo:
             int fd;
             char* buffer[100];
-            char id_to_id[24];
+            char id_to_id[128];
 
             // Create fifo filename:
             char* fifoFile = malloc(sizeof(char) * (strlen(commonDir) + 16));
@@ -58,14 +102,14 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2, cha
             strcat(fifoFile, "/");
             sprintf(id_to_id, "id%lu_to_id_%lu.fifo", client2, client1);
             strcat(fifoFile, id_to_id);
-            printf("aa %s\n", fifoFile);
+            // printf("aa %s\n", fifoFile);
 
             // // If fifo doesn't exist, create it:
-            if(stat(fifoFile, &fifoExists) != 0)
+            if(mkfifo(fifoFile, 0666) == -1)
             {
-                if(mkfifo(fifoFile, 0666) == -1)
+                if(errno != EEXIST)
                 {
-                    perror ("sender : mkfifo failed ");
+                    perror("sender : mkfifo failed ");
                     exit(1);
                 }
             }
@@ -85,13 +129,15 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2, cha
     }
 }
 
-int synchronizeExistingClients(unsigned long int ID, char* commonDir, LinkedList* clientList)
+int synchronizeExistingClients(unsigned long int ID, char* commonDir,
+    char* inputDir, LinkedList* clientList)
 {
     struct dirent *directory_entry;
     DIR *directory = opendir(commonDir);
 
     if(directory == NULL)
     {
+        closedir(directory);
         fprintf(stderr, "Can't open the directory God damn it...\n");
         return 0;
     }
@@ -106,10 +152,17 @@ int synchronizeExistingClients(unsigned long int ID, char* commonDir, LinkedList
         // Get client id from filename:
         unsigned long int newID = getClientIDFromFilename(newFilename);
 
+        if(newID == ID)
+        {
+            closedir(directory);
+            continue;
+        }
+
         // Check if id exists in linked list:
         int idFound = checkClientInLinkedList(newID, clientList);
         if(idFound == 0)
         {
+            closedir(directory);
             fprintf(stderr, "Not the first time I see this id, something didn't go well...\n");
             continue;
         }
@@ -121,8 +174,7 @@ int synchronizeExistingClients(unsigned long int ID, char* commonDir, LinkedList
 
         // Begin synchronization procedure:
         printf("Begin synchronization.\n");
-        synchronizeClients(ID, newID, commonDir);
+        synchronizeClients(ID, newID, commonDir, inputDir);
+        closedir(directory);
     }
-
-    closedir(directory);
 }

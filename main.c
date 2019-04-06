@@ -89,7 +89,7 @@ int main(int argc, char **argv)
     LinkedList* clientsList = initializeLinkedList();
 
     // Synchronize with already existing clients:
-    synchronizeExistingClients(ID, commonDirectory, clientsList);
+    synchronizeExistingClients(ID, commonDirectory, inputDirectory, clientsList);
 
     // Initialize inotify:
     int length, i;
@@ -100,12 +100,12 @@ int main(int argc, char **argv)
 
     // Check everything is ok:
     if (inotifyInstance < 0) {
-        fprintf(stderr, "Something didn't work right with inotify. Oh well...\n");
+        perror("Something didn't work right with inotify. Oh well...");
         return 1;
     }
 
     // Add common dir to the list of dirs to check:
-    dirWatch = inotify_add_watch( inotifyInstance, commonDirectory, IN_CREATE | IN_DELETE );
+    dirWatch = inotify_add_watch(inotifyInstance, commonDirectory, IN_CREATE | IN_DELETE);
 
     // Now your job is to keep guard for any changes in the common directory:
     while(1)
@@ -152,7 +152,7 @@ int main(int argc, char **argv)
 
                     // Begin synchronization procedure:
                     printf("Begin synchronization.\n");
-                    synchronizeClients(ID, newID, commonDirectory);
+                    synchronizeClients(ID, newID, commonDirectory, inputDirectory);
                 }
                 else if((event->mask & IN_DELETE) && !(event->mask & IN_ISDIR))
                 {
