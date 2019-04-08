@@ -9,6 +9,9 @@
 # include <errno.h>
 #include <dirent.h>
 #include <unistd.h>
+#include <sys/wait.h> 
+#include <stdint.h>
+
 #include "linked_list.h"
 #include "validation.h"
 
