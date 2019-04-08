@@ -89,7 +89,8 @@ int main(int argc, char **argv)
     LinkedList* clientsList = initializeLinkedList();
 
     // Synchronize with already existing clients:
-    synchronizeExistingClients(ID, commonDirectory, inputDirectory, clientsList);
+    synchronizeExistingClients(ID, commonDirectory, inputDirectory,
+        mirrorDirectory, clientsList);
 
     // Initialize inotify:
     int length, i;
@@ -152,7 +153,7 @@ int main(int argc, char **argv)
 
                     // Begin synchronization procedure:
                     printf("Begin synchronization.\n");
-                    synchronizeClients(ID, newID, commonDirectory, inputDirectory);
+                    synchronizeClients(ID, newID, commonDirectory, inputDirectory, mirrorDirectory);
                 }
                 else if((event->mask & IN_DELETE) && !(event->mask & IN_ISDIR))
                 {

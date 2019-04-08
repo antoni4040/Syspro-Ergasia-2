@@ -73,7 +73,7 @@ for ((i = 0 ; i < $numOfFiles ; i++)); do
     let fileIndex+=1
 
     # If we're at the end of the queue, go to the beginning:
-    if [[ $fileIndex -gt ${#queue[@]} ]]; then
+    if [[ $fileIndex -eq ${#queue[@]} ]]; then
         fileIndex=0
     fi
 done
