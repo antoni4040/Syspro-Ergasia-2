@@ -70,7 +70,8 @@ int main(int argc, char **argv)
     }
 
     // Validate parameters and create directories if necessary:
-    int validation = validateParameters(commonDirectory, inputDirectory, mirrorDirectory, bufferSize, logFile);
+    int validation = validateParameters(ID, commonDirectory, inputDirectory,
+        mirrorDirectory, bufferSize, logFile);
     // If validation fails, give up:
     if(validation == 1)
     {
@@ -90,7 +91,7 @@ int main(int argc, char **argv)
 
     // Synchronize with already existing clients:
     synchronizeExistingClients(ID, commonDirectory, inputDirectory,
-        mirrorDirectory, clientsList);
+        mirrorDirectory, logFile, clientsList);
 
     // Initialize inotify:
     int length, i;
@@ -153,7 +154,8 @@ int main(int argc, char **argv)
 
                     // Begin synchronization procedure:
                     printf("Begin synchronization.\n");
-                    synchronizeClients(ID, newID, commonDirectory, inputDirectory, mirrorDirectory);
+                    synchronizeClients(ID, newID, commonDirectory,
+                    inputDirectory, mirrorDirectory, logFile);
                 }
                 else if((event->mask & IN_DELETE) && !(event->mask & IN_ISDIR))
                 {
@@ -169,4 +171,6 @@ int main(int argc, char **argv)
 
     // Close inotify instance:
     close(inotifyInstance);
+
+    printf("\n\nClient %lu has died.\n\n", ID);
 }

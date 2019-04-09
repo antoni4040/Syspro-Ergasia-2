@@ -16,7 +16,7 @@
 #include "validation.h"
 
 int synchronizeClients(unsigned long int client1, unsigned long int client2,
-    char* commonDir, char* inputDir, char* mirrorDir);
+    char* commonDir, char* inputDir, char* mirrorDir, char* logFile);
 int synchronizeExistingClients(unsigned long int ID, char* commonDir,
-    char* inputDir, char* mirrorDir, LinkedList* clientList);
+    char* inputDir, char* mirrorDir, char* logFile, LinkedList* clientList);
 #endif //ERGASIA_2_CHILD_PROCESSES_H

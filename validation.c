@@ -2,7 +2,7 @@
 
 
 // Check the validity of the command line parameters and create the necessary directories:
-int validateParameters(char* commonDirectory, char* inputDirectory,
+int validateParameters(unsigned long int clientID, char* commonDirectory, char* inputDirectory,
     char* mirrorDirectory, unsigned int bufferSize, char* logFile)
 {
     printf("%s %s %s %ui %s\n", commonDirectory, inputDirectory, mirrorDirectory, bufferSize, logFile);
@@ -47,6 +47,14 @@ int validateParameters(char* commonDirectory, char* inputDirectory,
         printf("Creating common directory for glorious communist regime...\n");
         mkdir(commonDirectory, 0777);
     }
+
+    // Create log file:
+    FILE *logFileOpen = fopen(logFile, "ab+");
+    // Write client id:
+    char clientIDString[20];
+    sprintf(clientIDString, "%lu", (unsigned long int )clientID);
+    fputs(clientIDString, logFileOpen);
+    fclose(logFileOpen);
 
     return 0;
 }

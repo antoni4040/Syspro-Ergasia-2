@@ -3,7 +3,7 @@
 #define bufferSize 100
 
 int synchronizeClients(unsigned long int client1, unsigned long int client2,
-    char* commonDir, char* inputDir, char* mirrorDir)
+    char* commonDir, char* inputDir, char* mirrorDir, char* logFile)
 {
     pid_t childA, childB;
     struct stat fifoExists;
@@ -52,7 +52,7 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
         // Get all files from current client input file:
         DIR *directory;
         struct dirent *directory_entry;
-        printf("\n  Client: %lu Input dir:%s\n", client1, inputDir);
+        // printf("\n  Client: %lu Input dir:%s\n", client1, inputDir);
         char* firstDirName = malloc(sizeof(char) * strlen(inputDir));
         strcpy(firstDirName, inputDir);
 
@@ -88,7 +88,7 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
                     strcpy(newDirName, dirName);
                     strcat(newDirName, "/");
                     strcat(newDirName, directory_entry->d_name);
-                    printf("\n  dir: %s\n", newDirName);
+                    // printf("\n  dir: %s\n", newDirName);
                     Node* newNode = initializeNode(newDirName);
                     appendToLinkedList(toVisit, newNode);
 
@@ -98,7 +98,7 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
 
                     // Write 2 bytes for dirname size to fifo:
                     dirnameSize = strlen(dirname);
-                    printf("Client %lu: Writing dirname size %d\n", client1, (int)dirnameSize);
+                    // printf("Client %lu: Writing dirname size %d\n", client1, (int)dirnameSize);
                     if ((write(fd, &dirnameSize, 2)) == -1)
                     { 
                         perror ("Error writing dirname size to fifo.");
@@ -106,7 +106,7 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
                     }       
 
                     // Write dirname to fifo:
-                    printf("Client %lu: Writing dirname %s\n", client1, dirname);
+                    // printf("Client %lu: Writing dirname %s\n", client1, dirname);
                     if ((write(fd, dirname, (size_t)dirnameSize)) == -1)
                     { 
                         perror ("Error writing dirname to fifo.");
@@ -115,7 +115,7 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
 
                     // As there is no file content, transmit -1 to inform the receiver:
                     int32_t noFile = -1;
-                    printf("Client %lu: Writing no file.\n", client1);
+                    // printf("Client %lu: Writing no file.\n", client1);
                     if ((write(fd, &noFile, 4)) == -1)
                     { 
                         perror ("Error writing no file to fifo.");
@@ -137,7 +137,7 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
 
                     // Write 2 bytes for filename size to fifo:
                     filenameSize = strlen(filenameToWrite);
-                    printf("Client %lu: Writing filename size %d\n", client1, (int)filenameSize);
+                    // printf("Client %lu: Writing filename size %d\n", client1, (int)filenameSize);
                     if ((write(fd, &filenameSize, 2)) == -1)
                     { 
                         perror ("Error writing filename size to fifo.");
@@ -145,7 +145,7 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
                     }       
 
                     // Write filename to fifo:
-                    printf("Client %lu: Writing filename %s\n", client1, filenameToWrite);
+                    // printf("Client %lu: Writing filename %s\n", client1, filenameToWrite);
                     if ((write(fd, filenameToWrite, (size_t)filenameSize)) == -1)
                     { 
                         perror ("Error writing filename to fifo.");
@@ -158,7 +158,7 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
                     contentSize = fileStat.st_size;
 
                     // // Write content size to fifo:
-                    printf("Client %lu: Writing filesize %d\n", client1, contentSize);
+                    // printf("Client %lu: Writing filesize %d\n", client1, contentSize);
                     if ((write(fd, &contentSize, 4)) == -1)
                     { 
                         perror ("Error writing filesize to fifo.");
@@ -200,6 +200,7 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
         }
         free(toVisit);
         free(fifoFile);
+        exit(0);
     }
     else
     {
@@ -244,7 +245,7 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
             }
 
             // Open fifo file to read data:
-            printf("Client %lu: Opening %s for reading.\n", client1, fifoFile);
+            // printf("Client %lu: Opening %s for reading.\n", client1, fifoFile);
             if((fd=open(fifoFile, O_RDWR)) < 0)
             {
                 perror("Can't open fifo. Open up please!");
@@ -263,7 +264,7 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
                     perror("Can't read filename size.");
                     exit(2);
                 }
-                printf("Client %lu: Reading filename size %d\n", client1, (int)filenameSize);
+                // printf("Client %lu: Reading filename size %d\n", client1, (int)filenameSize);
 
                 if(filenameSize == 0)
                 {
@@ -279,7 +280,7 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
                     exit(2);
                 }
                 filename[filenameSize] = '\0';
-                printf("Client %lu: Reading filename %s\n", client1, filename);
+                // printf("Client %lu: Reading filename %s\n", client1, filename);
 
                 // Get content size from fifo:
                 if(read(fd, &contentSize, 4) < 0)
@@ -287,7 +288,7 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
                     perror("Can't read content size.");
                     exit(2);
                 }
-                printf("Client %lu: Reading content size %d\n", client1, contentSize);
+                // printf("Client %lu: Reading content size %d\n", client1, contentSize);
 
                 // If content size is -1, then there is no content, make a directory:
                 if(contentSize == -1)
@@ -304,14 +305,13 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
                     free(dirname);
                 }
                 // If content size is greater than zero, get data to write to file:
-                else if(contentSize > 0)
+                else if(contentSize >= 0)
                 {
                     char* fileToWrite = malloc(sizeof(char) * (strlen(mirrorIDDir) + strlen(filename) + 2));
                     strcpy(fileToWrite, mirrorIDDir);
                     strcat(fileToWrite, "/");
                     strcat(fileToWrite, filename);
-                    printf("Client %lu: wtf is the filename %s\n", client1, filename);
-                    printf("Client %lu: Writing content to file %s\n", client1, fileToWrite);
+                    // printf("Client %lu: Writing content to file %s\n", client1, fileToWrite);
                     // Open file with write permissions, create it if it doesn't exist, empty it if it already exists.
                     // Allow the user to read and write that file.
                     int file = open(fileToWrite, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
@@ -334,13 +334,11 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
                     close(file);
                     free(fileToWrite);
                 }
-                else{
-                    break;
-                }
                 free(filename);           
             }
 
             free(fifoFile);
+            exit(0);
         }
         else
         {
@@ -352,7 +350,7 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
 }
 
 int synchronizeExistingClients(unsigned long int ID, char* commonDir,
-    char* inputDir, char* mirrorDir, LinkedList* clientList)
+    char* inputDir, char* mirrorDir, char* logFile, LinkedList* clientList)
 {
     struct dirent *directory_entry;
     DIR *directory = opendir(commonDir);
@@ -364,6 +362,7 @@ int synchronizeExistingClients(unsigned long int ID, char* commonDir,
         return 0;
     }
 
+    // Read through the common directory to find the prexisting IDs:
     while ((directory_entry = readdir(directory)) != NULL)
     {
         char *newFilename = directory_entry->d_name;
@@ -374,9 +373,9 @@ int synchronizeExistingClients(unsigned long int ID, char* commonDir,
         // Get client id from filename:
         unsigned long int newID = getClientIDFromFilename(newFilename);
 
+        // Not interested in our id:
         if(newID == ID)
         {
-            closedir(directory);
             continue;
         }
 
@@ -395,8 +394,8 @@ int synchronizeExistingClients(unsigned long int ID, char* commonDir,
         appendToLinkedList(clientList, newClientNode);
 
         // Begin synchronization procedure:
-        printf("Begin synchronization.\n");
-        synchronizeClients(ID, newID, commonDir, inputDir, mirrorDir);
-        closedir(directory);
+        printf("Begin synchronization. %lu  %lu\n", ID, newID);
+        synchronizeClients(ID, newID, commonDir, inputDir, mirrorDir, logFile);
     }
+    closedir(directory);
 }
