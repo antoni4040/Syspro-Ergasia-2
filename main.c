@@ -153,7 +153,6 @@ int main(int argc, char **argv)
                     appendToLinkedList(clientsList, newClientNode);
 
                     // Begin synchronization procedure:
-                    printf("Begin synchronization.\n");
                     synchronizeClients(ID, newID, commonDirectory,
                     inputDirectory, mirrorDirectory, logFile);
                 }
@@ -171,6 +170,4 @@ int main(int argc, char **argv)
 
     // Close inotify instance:
     close(inotifyInstance);
-
-    printf("\n\nClient %lu has died.\n\n", ID);
 }

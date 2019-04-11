@@ -54,6 +54,7 @@ int validateParameters(unsigned long int clientID, char* commonDirectory, char* 
     char clientIDString[20];
     sprintf(clientIDString, "%lu", (unsigned long int )clientID);
     fputs(clientIDString, logFileOpen);
+    fputs("\n", logFileOpen);
     fclose(logFileOpen);
 
     return 0;

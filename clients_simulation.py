@@ -1,4 +1,3 @@
-from multiprocessing import Process
 import subprocess
 import os
 import sys
@@ -24,6 +23,10 @@ try:
     shutil.rmtree("common")
 except:
     pass
+try:
+    shutil.rmtree("logs")
+except:
+    pass
 for i in os.listdir("."):
     if os.path.isdir(os.path.join(".", i)):
         if i.endswith("mirror") or i.endswith("input"):
@@ -41,6 +44,7 @@ numOfInitialClients = int(sys.argv[2])
 timeInterval = int(sys.argv[3])
 
 os.mkdir("common")
+os.mkdir("logs")
 
 signal.signal(signal.SIGTSTP, signal_handler)
 
@@ -62,7 +66,7 @@ for i in range(numOfInitialClients):
             "./" +
             executable, "-n", str(ID), "-c", "./common", "-i", "./" +
             inputFileName, "-m", "./" + str(ID) + "_mirror",
-            "-b", "100", "-l", "log_file" + str(ID)
+            "-b", "100", "-l", "./logs/log_file" + str(ID)
         ])
     )
     ID += 1
@@ -86,7 +90,7 @@ if timeInterval != None and timeInterval != 0:
                 "./" +
                 executable, "-n", str(ID), "-c", "./common", "-i", "./" +
                 inputFileName, "-m", "./" + str(ID) + "_mirror",
-                "-b", "100", "-l", "log_file" + str(ID)
+                "-b", "100", "-l", "./logs/log_file" + str(ID)
             ])
         processes.append(process)
         ID += 1
@@ -94,7 +98,3 @@ else:
     for i in processes:
         i.wait()
 
-
-def runClient(_id, common, _input, mirror, _bytes, log_file):
-    os.system("./{} -n {} -c {} -i {} -m {} -b {} -l {}".format(
-        executable, _id, common, _input, mirror, _bytes, log_file))

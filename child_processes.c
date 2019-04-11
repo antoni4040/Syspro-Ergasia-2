@@ -42,7 +42,7 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
         }
 
         // Open fifo file to write data:
-        printf("Opening %s for writing.\n", fifoFile);
+        // printf("Opening %s for writing.\n", fifoFile);
         if((fd=open(fifoFile, O_WRONLY)) < 0)
         {
             perror("Can't open fifo. Maybe trying booting FIFA?");
@@ -181,6 +181,23 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
                             }
                     }
 
+                    // Open log file for appending:
+                    FILE* logFileOpen = fopen(logFile, "a");
+
+                    // File transfer complete, update log:
+                    char* logUpdate = malloc(sizeof(char) * (strlen(filename) + 36));
+                    char contentSizeString[20];
+                    strcpy(logUpdate, "S ");
+                    strcat(logUpdate, filename);
+                    sprintf(contentSizeString, "%lu", (unsigned long int)contentSize);
+                    strcat(logUpdate, " ");
+                    strcat(logUpdate, contentSizeString);                    
+                    fputs(logUpdate, logFileOpen);
+                    fputs("\n", logFileOpen);
+
+                    free(logUpdate);
+                    fclose(logFileOpen);
+
                     free(filename);
                     free(filenameToWrite);
                     close(openFile);
@@ -191,7 +208,7 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
             closedir(directory);
         }
         // Add 00 to fifo to show end of transmition:
-        printf("\nClient %lu: writing end of transmition.\n", client1);
+        // printf("\nClient %lu: writing end of transmition.\n", client1);
         int16_t end = 0;
         if ((write(fd, &end, 2)) == -1)
         { 
@@ -268,7 +285,7 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
 
                 if(filenameSize == 0)
                 {
-                    printf("\n\nTHIS IS THE END. YOU KNOW!\n\n");
+                    // printf("\n\nTHIS IS THE END. YOU KNOW!\n\n");
                     break;
                 }
 
@@ -289,6 +306,9 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
                     exit(2);
                 }
                 // printf("Client %lu: Reading content size %d\n", client1, contentSize);
+                
+                // Save a copy of content size of the log files:
+                int32_t contentSizeCopy = contentSize;
 
                 // If content size is -1, then there is no content, make a directory:
                 if(contentSize == -1)
@@ -325,8 +345,7 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
                             bytes = read(fd, buffer, contentSize);
                         if ((write(file, buffer, bytes)) == -1)
                         { 
-                            printf("Error writing to file %s\n", fileToWrite);
-                            //perror ("Error writing to file.");
+                            perror ("Error writing to file.");
                             exit(2);
                         }
                         contentSize -= bufferSize;
@@ -334,6 +353,24 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
                     close(file);
                     free(fileToWrite);
                 }
+
+                 // Open log file for appending:
+                FILE* logFileOpen = fopen(logFile, "a");
+
+                // File transfer complete, update log:
+                char* logUpdate = malloc(sizeof(char) * (strlen(filename) + 36));
+                char contentSizeString[20];
+                strcpy(logUpdate, "R ");
+                strcat(logUpdate, filename);
+                sprintf(contentSizeString, "%lu", (unsigned long int)contentSizeCopy);
+                strcat(logUpdate, " ");
+                strcat(logUpdate, contentSizeString);                    
+                fputs(logUpdate, logFileOpen);
+                fputs("\n", logFileOpen);
+
+                free(logUpdate);
+                fclose(logFileOpen);
+
                 free(filename);           
             }
 
@@ -345,6 +382,7 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
             // Parent code:
             waitpid(childA, NULL, 0);
             waitpid(childB, NULL, 0);
+            printf("File transfer from client %lu to client %lu complete.\n", client1, client2);
         }
     }
 }
@@ -394,7 +432,6 @@ int synchronizeExistingClients(unsigned long int ID, char* commonDir,
         appendToLinkedList(clientList, newClientNode);
 
         // Begin synchronization procedure:
-        printf("Begin synchronization. %lu  %lu\n", ID, newID);
         synchronizeClients(ID, newID, commonDir, inputDir, mirrorDir, logFile);
     }
     closedir(directory);
