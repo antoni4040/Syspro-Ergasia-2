@@ -163,6 +163,7 @@ int main(int argc, char **argv)
                     int idFound = checkClientInLinkedList(newID, clientsList);
                     if(idFound == 0)
                     {
+                        i += EVENT_SIZE + event->len;
                         fprintf(stderr, "Not the first time I see this id, something didn't go well...\n");
                         continue;
                     }
@@ -187,6 +188,7 @@ int main(int argc, char **argv)
 
                     unsigned long int idToDelete = getClientIDFromFilename(event->name);
                     char idBuffer[20];
+                    sprintf(idBuffer, "%lu", idToDelete);
                     if(idToDelete == ID)
                     {
                         delete = 1;
@@ -195,6 +197,7 @@ int main(int argc, char **argv)
                         char* logUpdate = malloc(20);
                         strcpy(logUpdate, "d ");
                         strcat(logUpdate, idBuffer);
+                        strcat(logUpdate, "\n");
                         fputs(logUpdate, logFileOpen);
                         fclose(logFileOpen);
                         break;

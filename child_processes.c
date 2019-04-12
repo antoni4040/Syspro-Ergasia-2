@@ -2,6 +2,8 @@
 #include "child_processes.h"
 
 // Use these variables in case we need to retry the transfers:
+pid_t childA = 1;
+pid_t childB = 1;
 int triesChildA;
 int triesChildB;
 int tryFork;
@@ -9,6 +11,8 @@ int tryFork;
 void problemHandler(int signo)
 {
     printf("Something went wrong with my children. May need to do something...\n");
+    kill(childA, SIGKILL);
+    kill(childB, SIGKILL);
     tryFork = 1;
 }
 
@@ -26,56 +30,61 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
     sigaddset(&problemAct.sa_mask, SIGUSR2);
     sigaction(SIGUSR2, &problemAct, NULL);
 
-    pid_t childA = 1;
-    pid_t childB = 1;
-
-    while(tryFork == 1)
+    while(tryFork == 1 && (triesChildA != 0 || triesChildB != 0))
     {
-    tryFork = 0;
-    if(triesChildA != 0)
-    {
-        childA = fork();
-        triesChildA -= 1;
-    }
-
-    if(childA == 0)
-    {
-        int receive = forkReceiver(client1, client2, commonDir, inputDir, mirrorDir, logFile, bufferSize);
-        if(receive != 0)
+        tryFork = 0;
+        if(triesChildA != 0)
         {
-            // Something went wrong, send signal to parent to try again:
-            kill(getppid(), SIGUSR2);
-        }
-        exit(0);
-    }
-    else
-    {
-        if(triesChildB != 0)
-        {
-            childB = fork();
-            triesChildB -= 1;
+            childA = fork();
+            triesChildA -= 1;
         }
 
-        if(childB == 0)
+        if(childA == 0)
         {
-            int send = forkSender(client1, client2, commonDir, inputDir, mirrorDir, logFile, bufferSize);
-            if(send != 0)
+            int receive = forkReceiver(client1, client2, commonDir, inputDir, mirrorDir, logFile, bufferSize);
+            if(receive != 0)
             {
                 // Something went wrong, send signal to parent to try again:
                 kill(getppid(), SIGUSR2);
+            }
+            else
+            {
+                printf("File transfer from client %lu to client %lu complete.\n", client2, client1);
+                triesChildA = 0;
             }
             exit(0);
         }
         else
         {
-            // Parent code:
-            waitpid(childA, NULL, 0);
-            waitpid(childB, NULL, 0);
-            printf("File transfer from client %lu to client %lu complete.\n", client1, client2);
+            if(triesChildB != 0)
+            {
+                childB = fork();
+                triesChildB -= 1;
+            }
+
+            if(childB == 0)
+            {
+                int send = forkSender(client1, client2, commonDir, inputDir, mirrorDir, logFile, bufferSize);
+                if(send != 0)
+                {
+                    // Something went wrong, send signal to parent to try again:
+                    kill(getppid(), SIGUSR2);
+                }
+                else
+                {
+                    triesChildB = 0;
+                }
+                exit(0);
+            }
+            else
+            {
+                // Parent code:
+                waitpid(childA, NULL, 0);
+                waitpid(childB, NULL, 0);
+            }
         }
     }
-    }
-    
+
     return 0;
 }
 
@@ -519,6 +528,9 @@ int forkReceiver(unsigned long int client1, unsigned long int client2,
     else
     {
         printf("Waited for too long...\n");
+        close(fd);
+        free(fifoFile);
+        free(buffer);
         return 1;
     }
 
