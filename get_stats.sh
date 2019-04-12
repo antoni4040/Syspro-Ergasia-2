@@ -5,6 +5,7 @@ bytesSent=0
 bytesReceived=0
 filesSent=0
 filesReceived=0
+clientsDeleted=0
 
 # Read log files line by line:
 while read line; do
@@ -13,6 +14,8 @@ while read line; do
     
     if [[ $numWords -eq 1 ]]; then
         ids=("${ids[@]}" $line)
+    elif [[ $numWords -eq 2 ]]; then
+        let clientsDeleted+=1
     else
         if [[ ${words[0]} = "S" ]]; then
             let filesSent+=1
@@ -43,3 +46,4 @@ echo Bytes sent: $bytesSent
 echo Bytes received: $bytesReceived
 echo Files sent: $filesSent
 echo Files received: $filesReceived
+echo Clients that left the system: $clientsDeleted

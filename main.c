@@ -190,8 +190,16 @@ int main(int argc, char **argv)
                     if(idToDelete == ID)
                     {
                         delete = 1;
+                        // Update log before dying:
+                        FILE* logFileOpen = fopen(logFile, "a");
+                        char* logUpdate = malloc(20);
+                        strcpy(logUpdate, "d ");
+                        strcat(logUpdate, idBuffer);
+                        fputs(logUpdate, logFileOpen);
+                        fclose(logFileOpen);
                         break;
                     }
+
                     char *deletedFilename = malloc(sizeof(char) * (strlen(event->name) + strlen(mirrorDirectory) + 36));
                     strcpy(deletedFilename, "rm -rf ");
                     strcat(deletedFilename, mirrorDirectory);
@@ -199,7 +207,7 @@ int main(int argc, char **argv)
                     sprintf(idBuffer, "%lu", idToDelete);
                     strcat(deletedFilename, idBuffer);
                     printf("%s\n", deletedFilename);
-                    // This is a bit of a hack, but honestly,
+                    // This is a bit of a hack, but honestly...
                     system(deletedFilename);
                     free(deletedFilename);
                 }
@@ -215,9 +223,19 @@ int main(int argc, char **argv)
     // Close inotify instance:
     close(inotifyInstance);
 
+    // Delete client's input directory:
     char* deleteInputDir = malloc(sizeof(char)*strlen(inputDirectory) + 10);
     strcpy(deleteInputDir, "rm -rf ");
     strcat(deleteInputDir, inputDirectory);
+    system(deleteInputDir);
+    free(deleteInputDir);
+
+    // Delete client's mirror directory:
+    char* deleteMirrorDir = malloc(sizeof(char)*strlen(mirrorDirectory) + 10);
+    strcpy(deleteMirrorDir, "rm -rf ");
+    strcat(deleteMirrorDir, mirrorDirectory);
+    system(deleteMirrorDir);
+    free(deleteMirrorDir);
 
     free(commonDirectory);
     free(inputDirectory);
