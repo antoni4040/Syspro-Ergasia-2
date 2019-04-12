@@ -5,6 +5,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/inotify.h>
+#include <signal.h>
 
 #include "validation.h"
 #include "file_edits.h"
@@ -13,6 +14,14 @@
 
 #define EVENT_SIZE  (sizeof(struct inotify_event))
 #define EVENT_BUFFER_LEN  (1024*(EVENT_SIZE + 16))
+
+// Control with this the termination of the client:
+int delete = 0;
+
+void stopClient(int signo)
+{
+    delete = 1;
+}
 
 int main(int argc, char **argv)
 {
@@ -77,6 +86,14 @@ int main(int argc, char **argv)
     {
         return 0;
     }
+    // Create action to stop client:
+    static struct sigaction stopClientAct;
+    stopClientAct.sa_handler=stopClient;
+    sigemptyset(&stopClientAct.sa_mask);
+    sigaddset(&stopClientAct.sa_mask, SIGINT);
+    sigaddset(&stopClientAct.sa_mask, SIGQUIT);
+    sigaction(SIGINT, &stopClientAct, NULL);
+    sigaction(SIGQUIT, &stopClientAct, NULL);
 
     // Create .id file.
     int IDFileWritten = writeIDFile(ID, commonDirectory);
@@ -91,7 +108,7 @@ int main(int argc, char **argv)
 
     // Synchronize with already existing clients:
     synchronizeExistingClients(ID, commonDirectory, inputDirectory,
-        mirrorDirectory, logFile, clientsList);
+        mirrorDirectory, logFile, clientsList, bufferSize);
 
     // Initialize inotify:
     int length, i;
@@ -128,14 +145,16 @@ int main(int argc, char **argv)
             struct inotify_event *event = (struct inotify_event*)&buffer[i];
             if (event->len) {
                 if ((event->mask & IN_CREATE) && !(event->mask & IN_ISDIR)) {
-                    char *newFilename = malloc(sizeof(char) * strlen(event->name));
-                    strcpy(newFilename, event->name);
-                    if(isIDFile(newFilename) != 0)
+                    // If it's not an id file, do nonthing:
+                    if(isIDFile(event->name) != 0)
                     {
                         i += EVENT_SIZE + event->len;
-                        free(newFilename);
                         continue;
                     }
+
+                    char *newFilename = malloc(sizeof(char) * strlen(event->name));
+                    strcpy(newFilename, event->name);
+
                     // Get client id from filename:
                     unsigned long int newID = getClientIDFromFilename(newFilename);
 
@@ -148,22 +167,46 @@ int main(int argc, char **argv)
                     }
 
                     // Add new client to linked list:
-                    client* newClient = initializeClient(newID, 0);
+                    client* newClient = initializeClient(newID);
                     Node* newClientNode = initializeNode(newClient);
                     appendToLinkedList(clientsList, newClientNode);
 
                     // Begin synchronization procedure:
                     synchronizeClients(ID, newID, commonDirectory,
-                    inputDirectory, mirrorDirectory, logFile);
+                    inputDirectory, mirrorDirectory, logFile, bufferSize);
                 }
                 else if((event->mask & IN_DELETE) && !(event->mask & IN_ISDIR))
                 {
-                    char *deletedFilename = malloc(sizeof(char) * strlen(event->name));
-                    strcpy(deletedFilename, event->name);
+                    // If it's not an id file, do nonthing:
+                    if(isIDFile(event->name) != 0)
+                    {
+                        i += EVENT_SIZE + event->len;
+                        continue;
+                    }
+
+                    unsigned long int idToDelete = getClientIDFromFilename(event->name);
+                    char idBuffer[20];
+                    if(idToDelete == ID)
+                    {
+                        delete = 1;
+                        break;
+                    }
+                    char *deletedFilename = malloc(sizeof(char) * (strlen(event->name) + strlen(mirrorDirectory) + 36));
+                    strcpy(deletedFilename, "rm -rf ");
+                    strcat(deletedFilename, mirrorDirectory);
+                    strcat(deletedFilename, "/");
+                    sprintf(idBuffer, "%lu", idToDelete);
+                    strcat(deletedFilename, idBuffer);
+                    printf("%s\n", deletedFilename);
+                    // This is a bit of a hack, but honestly,
+                    system(deletedFilename);
+                    free(deletedFilename);
                 }
             }
             i += EVENT_SIZE + event->len;
         }
+        if(delete == 1)
+            break;
     }
     // Remove the common dir directory from the watch list:
     inotify_rm_watch(inotifyInstance, dirWatch);

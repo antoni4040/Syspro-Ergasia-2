@@ -1,16 +1,23 @@
 // Created by Antonis Karvelas.
 #include "child_processes.h"
-#define bufferSize 100
+
+// Use these variables in case we need to retry the transfers:
+pid_t childA;
+pid_t childB;
+int triesChildA = 0;
+int triesChildB = 0;
+int tryChildA = 1;
+int tryChildB = 1;
 
 int synchronizeClients(unsigned long int client1, unsigned long int client2,
-    char* commonDir, char* inputDir, char* mirrorDir, char* logFile)
+    char* commonDir, char* inputDir, char* mirrorDir, char* logFile, unsigned int bufferSize)
 {
-    pid_t childA, childB;
-    struct stat fifoExists;
-
+    // The first time, obviously try to fork. After that, only if something failed:
+    while(tryChildA == 1 || tryChildB == 1)
+    {
     childA = fork();
 
-    if(childA == 0)
+    if(childA == 0 && tryChildB == 1)
     {
         // Child A code, responsible for sending through fifo:
         int fd;
@@ -21,7 +28,6 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
         int16_t filenameSize;
         char* filename;
         int32_t contentSize;
-        char* content;
 
         // Create fifo filename:
         char* fifoFile = malloc(sizeof(char) * (strlen(commonDir) + 24));
@@ -172,7 +178,7 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
 
                     // Get file content:
                     int bytes;
-                    while(bytes = read(openFile, buffer, bufferSize))
+                    while((bytes = read(openFile, buffer, bufferSize)))
                     {
                         if ((write(fd, buffer, bytes)) == -1)
                             { 
@@ -217,13 +223,15 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
         }
         free(toVisit);
         free(fifoFile);
+        close(fd);
+        tryChildA = 0;
         exit(0);
     }
     else
     {
         childB = fork();
 
-        if(childB == 0)
+        if(childB == 0 && tryChildB == 1)
         {
             // Child B code, , responsible for receiving through fifo:
             int fd;
@@ -268,11 +276,26 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
                 perror("Can't open fifo. Open up please!");
                 exit(2);
             }
-            
+
             int filenameSize;
             char* filename;
             int32_t contentSize;
 
+            // Set up waiting period of 30 seconds:
+            fd_set readfds;
+            struct timeval timeOut;
+
+            timeOut.tv_sec = 10;
+            timeOut.tv_usec = 0;
+            int selectReturn = 0;
+
+            FD_ZERO(&readfds);
+            FD_SET(fd, &readfds);
+            selectReturn = select(fd+1, &readfds, (fd_set *)0, (fd_set *)0, &timeOut);
+
+            // If we actually get input from fifo within 30 seconds:
+            if(selectReturn > 0)
+            {
             for(;;)
             {
                 // Get filename size from fifo:
@@ -354,27 +377,39 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
                     free(fileToWrite);
                 }
 
-                 // Open log file for appending:
-                FILE* logFileOpen = fopen(logFile, "a");
 
-                // File transfer complete, update log:
-                char* logUpdate = malloc(sizeof(char) * (strlen(filename) + 36));
-                char contentSizeString[20];
-                strcpy(logUpdate, "R ");
-                strcat(logUpdate, filename);
-                sprintf(contentSizeString, "%lu", (unsigned long int)contentSizeCopy);
-                strcat(logUpdate, " ");
-                strcat(logUpdate, contentSizeString);                    
-                fputs(logUpdate, logFileOpen);
-                fputs("\n", logFileOpen);
+                if(contentSizeCopy != -1)
+                {
+                    // Open log file for appending:
+                    FILE* logFileOpen = fopen(logFile, "a");
 
-                free(logUpdate);
-                fclose(logFileOpen);
+                    // File transfer complete, update log:
+                    char* logUpdate = malloc(sizeof(char) * (strlen(filename) + 36));
+                    char contentSizeString[20];
+                    strcpy(logUpdate, "R ");
+                    strcat(logUpdate, filename);
+                    sprintf(contentSizeString, "%lu", (unsigned long int)contentSizeCopy);
+                    strcat(logUpdate, " ");
+                    strcat(logUpdate, contentSizeString);
+                    fputs(logUpdate, logFileOpen);
+                    fputs("\n", logFileOpen);
 
-                free(filename);           
+                    free(logUpdate);
+                    fclose(logFileOpen);
+                }
+
+                free(filename);
+            }
+            }
+            else
+            {
+                printf("Waited for too long. Aborting this one...\n");
+                exit(0);
             }
 
             free(fifoFile);
+            close(fd);
+            tryChildB = 0;
             exit(0);
         }
         else
@@ -385,10 +420,12 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
             printf("File transfer from client %lu to client %lu complete.\n", client1, client2);
         }
     }
+    }
+    return 0;
 }
 
 int synchronizeExistingClients(unsigned long int ID, char* commonDir,
-    char* inputDir, char* mirrorDir, char* logFile, LinkedList* clientList)
+    char* inputDir, char* mirrorDir, char* logFile, LinkedList* clientList, unsigned int bufferSize)
 {
     struct dirent *directory_entry;
     DIR *directory = opendir(commonDir);
@@ -427,12 +464,13 @@ int synchronizeExistingClients(unsigned long int ID, char* commonDir,
         }
 
         // Add new client to linked list:
-        client* newClient = initializeClient(newID, 0);
+        client* newClient = initializeClient(newID);
         Node* newClientNode = initializeNode(newClient);
         appendToLinkedList(clientList, newClientNode);
 
         // Begin synchronization procedure:
-        synchronizeClients(ID, newID, commonDir, inputDir, mirrorDir, logFile);
+        synchronizeClients(ID, newID, commonDir, inputDir, mirrorDir, logFile, bufferSize);
     }
     closedir(directory);
+    return 0;
 }

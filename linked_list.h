@@ -11,7 +11,6 @@
 typedef struct client
 {
     unsigned long int id;
-    pid_t process_id;
 } client;
 
 typedef struct Node
@@ -35,6 +34,6 @@ void freeLinkedList(LinkedList* linkedList);
 Node* popStart(LinkedList* linkedList);
 
 // Client part:
-client* initializeClient(unsigned long int id, pid_t processID);
+client* initializeClient(unsigned long int id);
 int checkClientInLinkedList(unsigned long int id, LinkedList* linkedList);
 #endif //ERGASIA_1_LINKEDLIST_H

@@ -5,7 +5,6 @@
 int validateParameters(unsigned long int clientID, char* commonDirectory, char* inputDirectory,
     char* mirrorDirectory, unsigned int bufferSize, char* logFile)
 {
-    printf("%s %s %s %ui %s\n", commonDirectory, inputDirectory, mirrorDirectory, bufferSize, logFile);
     // Check if parameters are given:
     if(commonDirectory == NULL || inputDirectory == NULL || mirrorDirectory == NULL ||
         bufferSize == 0 || logFile == NULL)

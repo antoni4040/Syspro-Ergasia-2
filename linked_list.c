@@ -65,11 +65,10 @@ void freeLinkedList(LinkedList* linkedList)
 // Client part:
 
 // Initialize a client struct to put in a linked list node:
-client* initializeClient(unsigned long int id, pid_t processID)
+client* initializeClient(unsigned long int id)
 {
     client* newClient = malloc(sizeof(client));
     newClient->id = id;
-    newClient->process_id = processID;
     return newClient;
 }
 
