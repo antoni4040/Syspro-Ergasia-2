@@ -1,5 +1,6 @@
 // Created by Antonis Karvelas.
 // Let there be light...
+#define _DEFAULT_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -213,4 +214,15 @@ int main(int argc, char **argv)
 
     // Close inotify instance:
     close(inotifyInstance);
+
+    char* deleteInputDir = malloc(sizeof(char)*strlen(inputDirectory) + 10);
+    strcpy(deleteInputDir, "rm -rf ");
+    strcat(deleteInputDir, inputDirectory);
+
+    free(commonDirectory);
+    free(inputDirectory);
+    free(mirrorDirectory);
+    free(logFile);
+
+    return 0;
 }

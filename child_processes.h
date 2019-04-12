@@ -22,4 +22,8 @@ int synchronizeClients(unsigned long int client1, unsigned long int client2,
     char* commonDir, char* inputDir, char* mirrorDir, char* logFile, unsigned int bufferSize);
 int synchronizeExistingClients(unsigned long int ID, char* commonDir,
     char* inputDir, char* mirrorDir, char* logFile, LinkedList* clientList, unsigned int bufferSize);
+int forkSender(unsigned long int client1, unsigned long int client2,
+    char* commonDir, char* inputDir, char* mirrorDir, char* logFile, unsigned int bufferSize);
+int forkReceiver(unsigned long int client1, unsigned long int client2,
+    char* commonDir, char* inputDir, char* mirrorDir, char* logFile, unsigned int bufferSize);
 #endif //ERGASIA_2_CHILD_PROCESSES_H
